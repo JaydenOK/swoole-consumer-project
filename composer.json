@@ -1,0 +1,6 @@
+{
+    "require": {
+        "pupilcp/swoole-multi-consumer": "^2.0",
+        "ext-json": "*"
+    }
+}

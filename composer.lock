@@ -1,0 +1,75 @@
+{
+    "_readme": [
+        "This file locks the dependencies of your project to a known state",
+        "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
+        "This file is @generated automatically"
+    ],
+    "content-hash": "5125632ba4589b8c0017c69a651d538b",
+    "packages": [
+        {
+            "name": "pupilcp/swoole-multi-consumer",
+            "version": "2.0.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/pupilcp/swoole-multi-consumer.git",
+                "reference": "05c93f5df63ca5591dbc6fead4de04e717d69bfe"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/pupilcp/swoole-multi-consumer/zipball/05c93f5df63ca5591dbc6fead4de04e717d69bfe",
+                "reference": "05c93f5df63ca5591dbc6fead4de04e717d69bfe",
+                "shasum": "",
+                "mirrors": [
+                    {
+                        "url": "https://mirrors.aliyun.com/composer/dists/%package%/%reference%.%type%",
+                        "preferred": true
+                    }
+                ]
+            },
+            "require": {
+                "ext-amqp": "*",
+                "ext-redis": ">=3.0",
+                "ext-swoole": ">=1.10.0",
+                "php": ">=7.0"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Pupilcp\\": "src"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "pupilcp",
+                    "email": "310976780@qq.com"
+                }
+            ],
+            "description": "使用swoole多进程消费者订阅消息，实现自动监控队列的数量，自行增加/减少消费者",
+            "keywords": [
+                "rabbitmq",
+                "swoole",
+                "多进程消费",
+                "自动伸缩消费者",
+                "订阅消息"
+            ],
+            "support": {
+                "issues": "https://github.com/pupilcp/swoole-multi-consumer/issues",
+                "source": "https://github.com/pupilcp/swoole-multi-consumer/tree/master"
+            },
+            "time": "2020-06-10T03:56:41+00:00"
+        }
+    ],
+    "packages-dev": [],
+    "aliases": [],
+    "minimum-stability": "stable",
+    "stability-flags": [],
+    "prefer-stable": false,
+    "prefer-lowest": false,
+    "platform": [],
+    "platform-dev": [],
+    "plugin-api-version": "2.0.0"
+}
