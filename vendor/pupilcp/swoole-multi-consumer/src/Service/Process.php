@@ -508,6 +508,7 @@ class Process
             if (isset(Smc::getGlobalConfig()['global']['queueCfgCallback']) && Smc::getGlobalConfig()['global']['queueCfgCallback']) {
                 $config = call_user_func_array(Smc::getGlobalConfig()['global']['queueCfgCallback'], []);
                 $configJson = json_encode($config);
+                //global amqp config change
                 if ($configJson && !Smc::cmpConfigHash($configJson)) {
                     $msg = 'smc-server检测到队列配置发生变化，系统将重启子进程';
                     Smc::$logger->log($msg);
