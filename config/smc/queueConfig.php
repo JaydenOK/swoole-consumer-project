@@ -1,20 +1,21 @@
 <?php
 
 return [
-    //消息服务连接配置
+    //消息服务连接配置：/etc/rabbitmq/rabbitmq.conf
+    //listeners.tcp.local    = 127.0.0.1:5672
     'connection' => [
         'host' => '127.0.0.1',
         'user' => 'test',
         'pass' => 'test',
         'port' => '5672',
         'vhost' => '/', //default vhost
-        'exchange' => 'queue_exchange',
+        'exchange' => 'multi_consumer_exchange',
         'timeout' => 3,
     ],
     'queues' => [
         //一个队列对应一个回调地址callback
         //callback可改造成http请求地址
-        //需手动创建交换机，队列名，设置路由
+        //需手动创建交换机，队列名，设置路由，并将队列绑定到交换机下
         'multi_consumer_test' => [
             'queueName' => 'multi_consumer_test', //队列名称
             'routeKey' => 'multi_consumer_test', //路由key
