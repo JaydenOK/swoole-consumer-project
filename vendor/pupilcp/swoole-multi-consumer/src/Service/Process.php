@@ -238,6 +238,8 @@ class Process
                 $baseApp = new $baseApplication();
                 $startTime = time();
                 $queue->consume(function (\AMQPEnvelope $envelope, \AMQPQueue $queue) use ($baseApp, $queueConf, &$startTime, $worker) {
+                    //consume阻塞，mq队列有数据才执行
+                    //Smc::$logger->log('time:' . date('Y-m-d H:i:s'), Logger::LEVEL_INFO);
                     $baseApp->run(['callbackUrl' => $queueConf['callbackUrl'], 'data' => $envelope->getBody()]);
                     $queue->ack($envelope->getDeliveryTag());
                     //子进程执行时间超过设定时间，退出并重启
@@ -512,6 +514,7 @@ class Process
                 if ($configJson && !Smc::cmpConfigHash($configJson)) {
                     $msg = 'smc-server检测到队列配置发生变化，系统将重启子进程';
                     Smc::$logger->log($msg);
+                    Smc::$logger->log($configJson);
                     Notice::getInstance()->notice(['title' => 'smc-server预警提示', 'content' => $msg]);
                     //配置发生变化，重新加载配置，并重启子进程
                     Smc::setConfigHash($configJson);

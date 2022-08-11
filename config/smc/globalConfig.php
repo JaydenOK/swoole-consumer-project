@@ -16,7 +16,7 @@ return [
     //通用配置
     'global' => [
         'masterProcessName' => 'smc-server-master', //主进程名称
-        'enableNotice' => true, //是否开启预警通知
+        'enableNotice' => false, //是否开启预警通知
         'dingDingToken' => '9a00df7cd91e69563668d0bab210ed499eaf53355510027ab23e3c561770c8f2', //钉钉机器人token
         //配置了queueCfgCallback方法，则不会使用下面的amqp信息，启动调用此回调，如果同时开启 checkConfigTime，则可以实现队列配置热加载，格式：call_user_func_array方法的第一个参数，
         //如果不使用热加载，可以使用以下的 amqp 配置的示例

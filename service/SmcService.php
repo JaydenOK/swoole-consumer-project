@@ -17,6 +17,7 @@ class SmcService
      */
     private $globalConfig = [];
     /**
+     * 包含connection信息
      * @var array
      */
     private $queueConfig = [];
@@ -93,11 +94,19 @@ class SmcService
         try {
             //改用redis存储
             $this->getQueueConfig();
+            //包含connection信息
             $defaultQueueConfig = $this->queueConfig;
+            $queues = $defaultQueueConfig['queues'];
+            //只有queues信息
             $redis = $this->getRedis();
             $queueConfig = $redis->get(self::QUEUE_CONFIG);
-            if (!empty($queueConfig)) {
-                $defaultQueueConfig['queues'] = array_merge($defaultQueueConfig['queues'], json_decode($queueConfig, true));
+            if ($queueConfig !== json_encode($queues)) {
+                //队列信息没变，不用更新，改变则合并返回
+                $redisQueues = json_decode($queueConfig, true);
+                $redisQueues = array_merge($queues, $redisQueues);
+                ksort($redisQueues);
+                $redis->set(self::QUEUE_CONFIG, json_encode($redisQueues));
+                $defaultQueueConfig['queues'] = $redisQueues;
             }
             return $defaultQueueConfig;
         } catch (\Exception $e) {

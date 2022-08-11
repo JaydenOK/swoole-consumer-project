@@ -80,7 +80,9 @@ class SmcServerController extends Controller
         return ResponseUtil::getOutputArrayByCodeAndData(Api::SUCCESS, $queueConfigArr);
     }
 
+    //修改配置60s生效
     //增加队列(手动后台增加mq队列):  php index.php "command/SmcServer/addQueue" "queueName=send_email&minConsumerNum=3&maxConsumerNum=10&callbackUrl=callback/Message/send"
+    //增加队列(手动后台增加mq队列):  php index.php "command/SmcServer/addQueue" "queueName=send_code&minConsumerNum=5&maxConsumerNum=10&callbackUrl=callback/Message/sendCode"
     public function addQueue()
     {
         $message = $this->service->addQueue($this->body);

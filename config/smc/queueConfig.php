@@ -15,10 +15,10 @@ return [
     'queues' => [
         //一个队列对应一个回调地址callback
         //callback可改造成http请求地址
-        //需手动创建交换机，队列名，设置路由，并将队列绑定到交换机下
-        'multi_consumer_test' => [
-            'queueName' => 'multi_consumer_test', //队列名称
-            'routeKey' => 'multi_consumer_test', //路由key
+        //需手动创建交换机，队列名，设置路由，并将队列绑定到交换机下, 启动默认（不用删）
+        'default_multi_consumer' => [
+            'queueName' => 'default_multi_consumer', //队列名称
+            'routeKey' => 'default_multi_consumer', //路由key
             'vhost' => '/', //队列所在的vhost
             'prefetchCount' => 5, //默认为10，不需要的话去掉该选项或设置为null
             'minConsumerNum' => 1,  //最小消费者数量
