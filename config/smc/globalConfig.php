@@ -24,7 +24,7 @@ return [
         'logPath' => APP_ROOT . '/logs/smc-server', //日志文件路径
         'childProcessMaxExecTime' => 86400, //子进程最大执行时间，避免运行时间过长，释放内存，单位：秒
         'baseApplication' => SmcServerController::class, //框架执行命令行，默认为yii1：\Pupilcp\Base\BaseApplication，其它框架请继承\Pupilcp\Base\BaseApplication
-        'smcServerStatusTime' => 120, //可选，定时监测smc-server状态的时间间隔，默认为null，不开启
+        //'smcServerStatusTime' => 120, //可选，定时监测smc-server状态的时间间隔，默认为null，不开启
         //'queueStatusTime'     => 60, //可选，定时监测消息队列数据积压的状态，自动伸缩消费者，默认为null，不开启
         'checkConfigTime'     => 60, //可选，定时监测队列相关配置状态的时间间隔，结合queueCfgCallback实现热加载，默认为null，不开启
     ],
