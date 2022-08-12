@@ -188,6 +188,7 @@ class Process
                     Smc::cleanWorkers($queue['queueName']);
                     $minConsumerNum = (int)$queue['minConsumerNum'];
                     $minConsumerNum = $minConsumerNum <= 0 ? $this->minConsumerNum : $minConsumerNum;
+                    //初始创建最少的消费者进程数
                     for ($i = 1; $i <= $minConsumerNum; $i++) {
                         $this->createProcess($queue);
                     }
@@ -252,13 +253,14 @@ class Process
                 });
             } catch (\Throwable $e) {
                 $this->swooleTable->set($this->rebootChildProcessFlag, ['reboot' => 1]);
-                Smc::$logger->log($e->getMessage() . $e->getTraceAsString(), Logger::LEVEL_ERROR);
+                Smc::$logger->log('createProcess Error: set reboot=1: ' . $e->getMessage() . $e->getTraceAsString(), Logger::LEVEL_ERROR);
             }
         }, false, false);
         //启动子进程
         $pid = $process->start();
+        //每个消费者进程pid保存于php变量
         $this->works[$queueConf['queueName']][] = $pid;
-        //添加子进程pid到redis-key
+        //每个消费者进程pid保存于 redis
         Smc::addWorker($queueConf['queueName'], $pid);
 
         return $pid;
@@ -301,7 +303,27 @@ class Process
      */
     private function exitSmcServer($signo = SIGTERM, $exit = true)
     {
+        //遍历当前队列配置Smc::getConfig()['queues']新的配置
+        $redisQueueConfig = Smc::getConfig()['queues'];
+        //遍历php遍历的pid
+        if (!empty($this->works)) {
+            foreach ($this->works as $name => $pidArr) {
+                if (!isset($redisQueueConfig[$name])) {
+                    if (count($pidArr)) {
+                        foreach ($pidArr as $pid) {
+                            if ($pid && \Swoole\Process::kill($pid, 0)) {
+                                \Swoole\Process::kill($pid, $signo);
+                                Smc::$logger->log(sprintf('清理历史进程信号：%s，子进程：%d退出' . PHP_EOL, $signo, $pid));
+                            } else {
+                                Smc::$logger->log(sprintf('清理历史进程信号：%s，子进程：%d 异常退出，可能不存在或未退出' . PHP_EOL, $signo, $pid));
+                            }
+                        }
+                    }
+                }
+            }
+        }
         if (!empty(Smc::getConfig()['queues'])) {
+            //@todo 此配置已更新，队列减少不能退出
             foreach (Smc::getConfig()['queues'] as $name => $queue) {
                 $pidArr = Smc::getWorkers($name);
                 if (empty($pidArr)) {
@@ -312,6 +334,8 @@ class Process
                         if ($pid && \Swoole\Process::kill($pid, 0)) {
                             \Swoole\Process::kill($pid, $signo);
                             Smc::$logger->log(sprintf('smc-server接收到信号：%s，子进程：%d退出' . PHP_EOL, $signo, $pid));
+                        } else {
+                            Smc::$logger->log(sprintf('smc-server接收到信号：%s，子进程：%d 异常退出，可能不存在或未退出' . PHP_EOL, $signo, $pid));
                         }
                     }
                     Smc::cleanWorkers($name);
@@ -335,26 +359,30 @@ class Process
     }
 
     /**
+     * kill() 向指定 pid 进程发送信号。
+     * signal() 设置异步信号监听。
      * 注册用户信号.
      */
     private function registerSignal()
     {
-        //强行退出主进程
+        //强行退出主进程 term
         \Swoole\Process::signal(SIGTERM, function ($signo) {
             $this->exitSmcServer($signo);
         });
-        //强行退出主进程
+        //强行退出主进程 kill
         \Swoole\Process::signal(SIGKILL, function ($signo) {
             $this->exitSmcServer($signo);
         });
+        //SIGUSR1: 向主进程 / 管理进程发送 SIGUSR1 信号，将平稳地 restart 所有 Worker 进程和 TaskWorker 进程
         //重启消费者子进程，SIGUSR1重启信号：\Swoole\Process::kill($this->mpid, SIGUSR1);
         \Swoole\Process::signal(SIGUSR1, function ($signo) {
+            //重载 ConfigHash 配置已为新的配置
             Smc::$logger->log('【系统提示】接收到系统命令，重启消费者子进程');
             $this->swooleTable->set($this->rebootChildProcessFlag, ['reboot' => 0]);
             $this->exitSmcServer($signo, false);
             $this->initConsumers();
         });
-        //重新注册定时器
+        //重新注册定时器user2
         \Swoole\Process::signal(SIGUSR2, function ($signo) {
             if ($this->timerPid && \Swoole\Process::kill($this->timerPid, 0)) {
                 \Swoole\Process::kill($this->timerPid);
@@ -362,7 +390,7 @@ class Process
             Smc::$logger->log('【系统提示】接收到系统命令，重新注册定时器');
             $this->registerTimer();
         });
-        //回收子进程
+        //回收子进程child
         \Swoole\Process::signal(SIGCHLD, function ($signo) {
             $this->processWait();
         });
@@ -398,12 +426,17 @@ class Process
     private function processWait()
     {
         while (true) {
+            /**
+             * 阻塞等待子进程退出，并回收
+             * 成功返回一个数组包含子进程的PID和退出状态码
+             * 如 array('code' => 0, 'pid' => 15001)，失败返回false
+             */
             $ret = \Swoole\Process::wait(false);
             if ($ret) {
                 try {
                     $this->rebootProcess($ret);
                 } catch (\Throwable $e) {
-                    Smc::$logger->log($e->getMessage() . $e->getTraceAsString(), Logger::LEVEL_ERROR);
+                    Smc::$logger->log('processWait Error::' . $e->getMessage() . $e->getTraceAsString(), Logger::LEVEL_ERROR);
                 }
             } else {
                 break;
@@ -418,9 +451,15 @@ class Process
     {
         $process = new \Swoole\Process(function (\Swoole\Process $worker) {
             $this->renameProcessName('smc-check-worker');
-            isset(Smc::getGlobalConfig()['global']['queueStatusTime']) && null !== Smc::getGlobalConfig()['global']['queueStatusTime'] && $this->checkQueuesStatus($worker);
-            isset(Smc::getGlobalConfig()['global']['smcServerStatusTime']) && null !== Smc::getGlobalConfig()['global']['smcServerStatusTime'] && $this->getSmcServerInfo($worker);
-            isset(Smc::getGlobalConfig()['global']['checkConfigTime']) && null !== Smc::getGlobalConfig()['global']['checkConfigTime'] && $this->checkConfigStatus();
+
+            isset(Smc::getGlobalConfig()['global']['queueStatusTime']) && null !== Smc::getGlobalConfig()['global']['queueStatusTime']
+            && $this->checkQueuesStatus($worker);
+
+            isset(Smc::getGlobalConfig()['global']['smcServerStatusTime']) && null !== Smc::getGlobalConfig()['global']['smcServerStatusTime']
+            && $this->getSmcServerInfo($worker);
+
+            isset(Smc::getGlobalConfig()['global']['checkConfigTime']) && null !== Smc::getGlobalConfig()['global']['checkConfigTime']
+            && $this->checkConfigStatus();
         });
         $this->timerPid = $process->start();
         if (strcmp(SWOOLE_VERSION, '4.4.0') > 0) {

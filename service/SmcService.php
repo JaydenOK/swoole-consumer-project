@@ -111,7 +111,7 @@ class SmcService
             return $defaultQueueConfig;
         } catch (\Exception $e) {
             Smc::$logger->log('loadQueueConfig Error: ' . $e->getMessage(), Logger::LEVEL_ERROR);
-            throw $e;
+            return [];
         }
     }
 

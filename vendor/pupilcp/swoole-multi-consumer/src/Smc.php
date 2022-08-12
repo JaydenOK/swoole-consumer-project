@@ -15,21 +15,22 @@ use Pupilcp\Log\Logger;
 
 class Smc
 {
-    public static $logger        = null;
-    public static $redis         = null;
+    public static $logger = null;
+    public static $redis = null;
     private static $globalConfig = null;
 
-    private static $prefixKey     = 'smc_';
+    private static $prefixKey = 'smc_';
+    //随队列配置改变
     private static $configHashKey = 'smcConfigSalt';
 
     public static function getRedis()
     {
         $flag = false;
-        $i    = 1;
+        $i = 1;
         while ($i <= 3 && !$flag) {
             try {
                 $redis = RedisLib::getInstance(self::getGlobalConfig()['redis'], false);
-                $flag  = true;
+                $flag = true;
 
                 return $redis;
             } catch (\Throwable $e) {
@@ -82,12 +83,12 @@ class Smc
     /**
      * 选择消费驱动.
      *
-     * @param array $queueConf  队列配置
-     * @param int   $driverFlag 驱动标识
-     *
-     * @throws
+     * @param array $queueConf 队列配置
+     * @param int $driverFlag 驱动标识
      *
      * @return object
+     * @throws
+     *
      */
     public function selectDriver($queueConf, $driverFlag)
     {
@@ -119,6 +120,7 @@ class Smc
     }
 
     /**
+     * 获取队列名$name的所有进程id
      * @param mixed $name
      *
      * @return array
@@ -152,7 +154,7 @@ class Smc
     public static function deleteWorker($name, $pid = null)
     {
         $redis = self::getRedis();
-        $key   = md5(self::$prefixKey . self::getGlobalConfig()['global']['uniqueServiceId'] . $name);
+        $key = md5(self::$prefixKey . self::getGlobalConfig()['global']['uniqueServiceId'] . $name);
         if (null === $pid) {
             return $redis->spop($key);
         } elseif ($redis->sismember($key, $pid)) {
@@ -163,6 +165,7 @@ class Smc
     }
 
     /**
+     * 删除队列pid信息
      * @param mixed $name
      *
      * @return mixed
@@ -170,7 +173,7 @@ class Smc
     public static function cleanWorkers($name)
     {
         $redis = self::getRedis();
-        $key   = md5(self::$prefixKey . self::getGlobalConfig()['global']['uniqueServiceId'] . $name);
+        $key = md5(self::$prefixKey . self::getGlobalConfig()['global']['uniqueServiceId'] . $name);
 
         return $redis->del($key);
     }
