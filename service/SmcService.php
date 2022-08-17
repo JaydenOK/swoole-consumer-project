@@ -12,6 +12,7 @@ class SmcService
 
     const QUEUE_CONFIG = 'queue.config';
 
+
     /**
      * @var array
      */
@@ -37,12 +38,10 @@ class SmcService
         return $this->globalConfig;
     }
 
-    private function getQueueConfig()
+    private function getDefaultQueueConfig()
     {
-        if (empty($this->queueConfig)) {
-            if (file_exists(APP_ROOT . '/config/smc/queueConfig.php')) {
-                $this->queueConfig = include APP_ROOT . '/config/smc/queueConfig.php';
-            }
+        if (file_exists(APP_ROOT . '/config/smc/queueConfig.php')) {
+            $this->queueConfig = include APP_ROOT . '/config/smc/queueConfig.php';
         }
         return $this->queueConfig;
     }
@@ -60,7 +59,7 @@ class SmcService
             $app->run($command, $daemon);
             $message = 'done';
         } catch (Throwable $e) {
-            $message = $e->getMessage() . PHP_EOL . $e->getTraceAsString();
+            $message = $e->getMessage() . PHP_EOL;
             Smc::$logger->log('Error: ' . $message, Logger::LEVEL_ERROR);
         }
         return $message;
@@ -85,30 +84,33 @@ class SmcService
     }
 
     /**
-     * 热加载队列配置回调，队列使用direct模式
+     * 启动后的队列配置获取，热加载队列配置回调，队列使用direct模式
+     * @param string $type
      * @return array
-     * @throws \Exception
      */
-    public function loadQueueConfig()
+    public function loadQueueConfig($type = '')
     {
         try {
+            $config = [
+                'connection' => [],
+                'queues' => [],
+            ];
             //改用redis存储
-            $this->getQueueConfig();
-            //包含connection信息
-            $defaultQueueConfig = $this->queueConfig;
-            $queues = $defaultQueueConfig['queues'];
-            //只有queues信息
+            $defaultQueueConfig = $this->getDefaultQueueConfig();
+            $config['connection'] = isset($defaultQueueConfig['connection']) ? $defaultQueueConfig['connection'] : [];
+            //启动之后，不在使用配文件默认队列信息
             $redis = $this->getRedis();
-            $queueConfig = $redis->get(self::QUEUE_CONFIG);
-            if ($queueConfig !== json_encode($queues)) {
+            $queuesJson = $redis->get(self::QUEUE_CONFIG);
+            if (!empty($queuesJson)) {
+                $redisQueues = json_decode($queuesJson, true);
                 //队列信息没变，不用更新，改变则合并返回
-                $redisQueues = json_decode($queueConfig, true);
-                $redisQueues = array_merge($queues, $redisQueues);
                 ksort($redisQueues);
-                $redis->set(self::QUEUE_CONFIG, json_encode($redisQueues));
-                $defaultQueueConfig['queues'] = $redisQueues;
+                if (json_encode($redisQueues) !== $queuesJson) {
+                    $redis->set(self::QUEUE_CONFIG, json_encode($redisQueues));
+                }
+                $config['queues'] = $redisQueues;
             }
-            return $defaultQueueConfig;
+            return $config;
         } catch (\Exception $e) {
             Smc::$logger->log('loadQueueConfig Error: ' . $e->getMessage(), Logger::LEVEL_ERROR);
             return [];
@@ -129,9 +131,9 @@ class SmcService
             || empty($maxConsumerNum) || empty($warningNum) || empty($callbackUrl)) {
             return 'miss parameter';
         }
-        $queueConfig = $this->getRedis()->get(self::QUEUE_CONFIG);
-        $queueConfigArr = empty($queueConfig) ? [] : json_decode($queueConfig, true);
-        if (isset($queueConfigArr[$queueName])) {
+        $queuesJson = $this->getRedis()->get(self::QUEUE_CONFIG);
+        $queuesArr = empty($queuesJson) ? [] : json_decode($queuesJson, true);
+        if (isset($queuesArr[$queueName])) {
             return 'add fail, queue exist:' . $queueName;
         }
         $tpl[$queueName] = [
@@ -145,30 +147,32 @@ class SmcService
             //本框架直接写模块路由，如果是外部的请求可以填写完整http地址，系统会以http-post-json方式回调
             'callbackUrl' => $callbackUrl,
         ];
-        $queueConfigArr = array_merge($queueConfigArr, $tpl);
-        $this->getRedis()->set(self::QUEUE_CONFIG, json_encode($queueConfigArr));
+        $queuesArr = array_merge($queuesArr, $tpl);
+        ksort($queuesArr);
+        $this->getRedis()->set(self::QUEUE_CONFIG, json_encode($queuesArr));
         return 'success';
     }
 
     //查看当前队列所有信息
     public function queueList()
     {
-        $queueConfig = $this->getRedis()->get(self::QUEUE_CONFIG);
-        $queueConfigArr = json_decode($queueConfig, true);
-        return $queueConfigArr;
+        $queuesJson = $this->getRedis()->get(self::QUEUE_CONFIG);
+        $queuesArr = json_decode($queuesJson, true);
+        return $queuesArr;
     }
 
     //删除队列
     public function deleteQueue($requestBody)
     {
         $queueName = isset($requestBody['queueName']) ? $requestBody['queueName'] : '';
-        $queueConfig = $this->getRedis()->get(self::QUEUE_CONFIG);
-        $queueConfigArr = json_decode($queueConfig, true);
-        if (!isset($queueConfigArr[$queueName])) {
+        $queuesJson = $this->getRedis()->get(self::QUEUE_CONFIG);
+        $queuesArr = json_decode($queuesJson, true);
+        if (!isset($queuesArr[$queueName])) {
             return 'queue not exist';
         }
-        unset($queueConfigArr[$queueName]);
-        $this->getRedis()->set(self::QUEUE_CONFIG, json_encode($queueConfigArr));
+        unset($queuesArr[$queueName]);
+        ksort($queuesArr);
+        $this->getRedis()->set(self::QUEUE_CONFIG, json_encode($queuesArr));
         return 'success';
     }
 

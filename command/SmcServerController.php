@@ -65,6 +65,7 @@ class SmcServerController extends Controller
 
     /**
      * 热加载队列配置回调，队列使用direct模式
+     * @param string $type = start 时，为启动时调用
      * @return array
      * @throws Exception
      */

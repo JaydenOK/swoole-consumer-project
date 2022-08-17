@@ -181,6 +181,7 @@ class Process
     private function initConsumers($queueName = null)
     {
         $queues = Smc::getConfig()['queues'] ?? [];
+        Smc::$logger->log('initConsumers: ' . json_encode($queues) . PHP_EOL);
         if (!empty($queues)) {
             foreach ($queues as $queue) {
                 if (null === $queueName || (null !== $queueName && $queueName == $queue['queueName'])) {
@@ -305,7 +306,7 @@ class Process
     {
         //遍历当前队列配置Smc::getConfig()['queues']新的配置
         $redisQueueConfig = Smc::getConfig()['queues'];
-        //遍历php遍历的pid
+        //遍历php遍历的pid，以$this->works配置为主
         if (!empty($this->works)) {
             foreach ($this->works as $name => $pidArr) {
                 if (!isset($redisQueueConfig[$name])) {
@@ -318,12 +319,17 @@ class Process
                                 Smc::$logger->log(sprintf('清理历史进程信号：%s，子进程：%d 异常退出，可能不存在或未退出' . PHP_EOL, $signo, $pid));
                             }
                         }
+                        //解决配置从有到无时，没有进入清理集合 cleanWorkers
+                        Smc::cleanWorkers($name);
                     }
                 }
             }
+            //清理后清空配置，防止queues也为空，没有清理而退出
+            $this->works = null;
         }
         if (!empty(Smc::getConfig()['queues'])) {
-            //@todo 此配置已更新，队列减少不能退出
+            //配置从有到无时，没有进入清理集合 cleanWorkers
+            //此配置已更新，队列减少不能退出
             foreach (Smc::getConfig()['queues'] as $name => $queue) {
                 $pidArr = Smc::getWorkers($name);
                 if (empty($pidArr)) {
@@ -390,7 +396,7 @@ class Process
             Smc::$logger->log('【系统提示】接收到系统命令，重新注册定时器');
             $this->registerTimer();
         });
-        //回收子进程child
+        //回收子进程child，master进程通过SIGCHLD监听子进程退出并重启子进程
         \Swoole\Process::signal(SIGCHLD, function ($signo) {
             $this->processWait();
         });
@@ -416,8 +422,10 @@ class Process
             sleep(3);
 
             return true;
+        } else {
+            //子进程是正常退出，不用重启
+            Smc::$logger->log('rebootProcess: no pid');
         }
-        Smc::$logger->log('rebootProcess Error: no pid');
     }
 
     /**
