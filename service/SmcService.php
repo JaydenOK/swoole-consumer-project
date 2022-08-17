@@ -78,7 +78,12 @@ class SmcService
         } else {
             //配置的是本系统内的回调，回调数据需是一维数组
             //php index.php "command/SmcServer/manage" "command=status"
-            $command = '/usr/bin/php index.php ' . $callbackUrl . ' ' . http_build_query(json_decode($data, true));
+            $dataArr = @json_decode($data, true);
+            //回调数据兼容非json串
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                $dataArr = [0 => $data];
+            }
+            $command = '/usr/bin/php index.php ' . $callbackUrl . ' ' . http_build_query($dataArr);
             exec($command);
         }
     }
