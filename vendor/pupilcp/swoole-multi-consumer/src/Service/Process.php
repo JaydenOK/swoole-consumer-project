@@ -231,6 +231,8 @@ class Process
                 $channel->setPrefetchCount($queueConf['prefetchCount'] ?? 10);
                 $queue = new \AMQPQueue($channel);
                 $queue->setName($queueConf['queueName'] ?? null);
+                $queue->setFlags(AMQP_DURABLE);
+                $queue->declareQueue();     //监听队列自动创建
                 $queue->bind(Smc::getConfig()['connection']['exchange'], $queueConf['routeKey'] ?? null);
                 $baseApplication = '\Pupilcp\Base\BaseApplication';
                 if (isset(Smc::getGlobalConfig()['global']['baseApplication']) && class_exists(Smc::getGlobalConfig()['global']['baseApplication'])) {
