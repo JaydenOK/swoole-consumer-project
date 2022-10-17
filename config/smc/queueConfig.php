@@ -16,7 +16,7 @@ return [
         //已改为redis存储，启动前需要保证在redis有相关配置存在
         //一个队列对应一个回调地址callback
         //callback可改造成http请求地址
-        //需手动创建交换机，队列名，设置路由，并将队列绑定到交换机下
+        //需手动创建交换机
 //        'default_multi_consumer' => [
 //            'queueName' => 'default_multi_consumer', //队列名称
 //            'routeKey' => 'default_multi_consumer', //路由key
