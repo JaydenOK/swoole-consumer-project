@@ -11,7 +11,8 @@ class SmcService
 {
 
     const QUEUE_CONFIG = 'queue.config';
-
+    const STATUS_STOP = 0;  //停止
+    const STATUS_START = 1;   //启动中
 
     /**
      * @var array
@@ -110,9 +111,15 @@ class SmcService
                 $redisQueues = json_decode($queuesJson, true);
                 //队列信息没变，不用更新，改变则合并返回
                 ksort($redisQueues);
-                if (json_encode($redisQueues) !== $queuesJson) {
-                    $redis->set(self::QUEUE_CONFIG, json_encode($redisQueues));
+                foreach ($redisQueues as $name => $item) {
+                    if ($item['status'] == self::STATUS_STOP) {
+                        //过滤未启用的队列
+                        unset($redisQueues[$name]);
+                    }
                 }
+//                if (json_encode($redisQueues) !== $queuesJson) {
+//                    $redis->set(self::QUEUE_CONFIG, json_encode($redisQueues));
+//                }
                 $config['queues'] = $redisQueues;
             }
             return $config;
@@ -151,6 +158,7 @@ class SmcService
             'warningNum' => $warningNum, //达到预警的消息数量，请合理设置，建议不少于1000
             //本框架直接写模块路由，如果是外部的请求可以填写完整http地址，系统会以http-post-json方式回调
             'callbackUrl' => $callbackUrl,
+            'status' => self::STATUS_STOP,
         ];
         $queuesArr = array_merge($queuesArr, $tpl);
         ksort($queuesArr);
@@ -176,6 +184,36 @@ class SmcService
             return 'queue not exist';
         }
         unset($queuesArr[$queueName]);
+        ksort($queuesArr);
+        $this->getRedis()->set(self::QUEUE_CONFIG, json_encode($queuesArr));
+        return 'success';
+    }
+
+    //启动
+    public function start($requestBody)
+    {
+        $queueName = isset($requestBody['queueName']) ? $requestBody['queueName'] : '';
+        $queuesJson = $this->getRedis()->get(self::QUEUE_CONFIG);
+        $queuesArr = json_decode($queuesJson, true);
+        if (!isset($queuesArr[$queueName])) {
+            return 'queue not exist';
+        }
+        $queuesArr[$queueName]['status'] = self::STATUS_START;
+        ksort($queuesArr);
+        $this->getRedis()->set(self::QUEUE_CONFIG, json_encode($queuesArr));
+        return 'success';
+    }
+
+    //停止
+    public function stop($requestBody)
+    {
+        $queueName = isset($requestBody['queueName']) ? $requestBody['queueName'] : '';
+        $queuesJson = $this->getRedis()->get(self::QUEUE_CONFIG);
+        $queuesArr = json_decode($queuesJson, true);
+        if (!isset($queuesArr[$queueName])) {
+            return 'queue not exist';
+        }
+        $queuesArr[$queueName]['status'] = self::STATUS_STOP;
         ksort($queuesArr);
         $this->getRedis()->set(self::QUEUE_CONFIG, json_encode($queuesArr));
         return 'success';
