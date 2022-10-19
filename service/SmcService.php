@@ -75,7 +75,7 @@ class SmcService
         if (strpos($callbackUrl, 'http') !== false) {
             //直接填的http请求方法post
             $header = ['Content-Type: application/json; charset=utf-8'];
-            curlPost($callbackUrl, $data, 5, $header);
+            $this->curlPost($callbackUrl, $data, 5, $header);
         } else {
             //配置的是本系统内的回调，回调数据需是一维数组
             //php index.php "command/SmcServer/manage" "command=status"
@@ -189,6 +189,53 @@ class SmcService
         return 'success';
     }
 
+    //更新
+    public function update($requestBody)
+    {
+        $queueName = isset($requestBody['queueName']) && !empty($requestBody['queueName']) ? $requestBody['queueName'] : '';
+        $callbackUrl = isset($requestBody['callbackUrl']) && !empty($requestBody['callbackUrl']) ? $requestBody['callbackUrl'] : '';
+        $routeKey = isset($requestBody['routeKey']) && !empty($requestBody['routeKey']) ? $requestBody['routeKey'] : '';
+        $vHost = isset($requestBody['vhost']) && !empty($requestBody['vhost']) ? $requestBody['vhost'] : '';
+        $prefetchCount = isset($requestBody['prefetchCount']) && !empty($requestBody['prefetchCount']) ? $requestBody['prefetchCount'] : 0;
+        $minConsumerNum = isset($requestBody['minConsumerNum']) && !empty($requestBody['minConsumerNum']) ? $requestBody['minConsumerNum'] : 0;
+        $maxConsumerNum = isset($requestBody['maxConsumerNum']) && !empty($requestBody['maxConsumerNum']) ? $requestBody['maxConsumerNum'] : 0;
+        $warningNum = isset($requestBody['warningNum']) && !empty($requestBody['warningNum']) ? $requestBody['warningNum'] : 0;
+        $queuesJson = $this->getRedis()->get(self::QUEUE_CONFIG);
+        $queuesArr = json_decode($queuesJson, true);
+        if (empty($queueName) || !isset($queuesArr[$queueName])) {
+            return 'queue not exist';
+        }
+        $update = [];
+        if (!empty($callbackUrl)) {
+            $update['callbackUrl'] = $callbackUrl;
+        }
+        if (!empty($routeKey)) {
+            $update['routeKey'] = $routeKey;
+        }
+        if (!empty($vHost)) {
+            $update['vHost'] = $vHost;
+        }
+        if (!empty($prefetchCount)) {
+            $update['prefetchCount'] = $prefetchCount;
+        }
+        if (!empty($minConsumerNum)) {
+            $update['minConsumerNum'] = $minConsumerNum;
+        }
+        if (!empty($maxConsumerNum)) {
+            $update['maxConsumerNum'] = $maxConsumerNum;
+        }
+        if (!empty($warningNum)) {
+            $update['warningNum'] = $warningNum;
+        }
+        if (empty($update)) {
+            return 'invalid parameter';
+        }
+        $queuesArr[$queueName] = array_merge($queuesArr[$queueName], $update);
+        ksort($queuesArr);
+        $this->getRedis()->set(self::QUEUE_CONFIG, json_encode($queuesArr));
+        return 'success';
+    }
+
     //启动
     public function start($requestBody)
     {
@@ -235,6 +282,34 @@ class SmcService
             $this->redis->select($config['database']);
         }
         return $this->redis;
+    }
+
+    private function curlPost($url, $data = array(), $timeout = 10, $header = array(), $cookie = "")
+    {
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+        if (!empty($header)) {
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $header);
+        }
+        $https = substr($url, 0, 8) == "https://" ? true : false;
+        if ($https) {
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+        }
+        if (!empty($cookie)) {
+            curl_setopt($ch, CURLOPT_COOKIE, $cookie);
+        }
+        $res = curl_exec($ch);
+        $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        if ($res !== false && $status >= 400) {
+            $res = false;
+        }
+        curl_close($ch);
+        return $res;
     }
 
 }

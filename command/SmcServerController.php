@@ -97,6 +97,13 @@ class SmcServerController extends Controller
         return ResponseUtil::getOutputArrayByCodeAndMessage(Api::SUCCESS, $message);
     }
 
+    //更新
+    public function update()
+    {
+        $message = $this->service->update($this->body);
+        return ResponseUtil::getOutputArrayByCodeAndMessage(Api::SUCCESS, $message);
+    }
+
     //启动
     public function start()
     {

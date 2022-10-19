@@ -2,6 +2,7 @@
 可作为独立队列回调服务，向rabbitmq队列发送消息，配置callback后，异步回调到callback地址，用于业务解耦。  
 或集成到自己系统模块下，callback配置对应的 模块/控制器/方法，命令行执行回调。  
 
+## 服务操作
 ```shell script
 启动: php index.php "command/SmcServer/manage" "command=start"  
 停止: php index.php "command/SmcServer/manage" "command=stop"  
@@ -9,11 +10,15 @@
 查看状态: php index.php "command/SmcServer/manage" "command=status"
 ```
 
-查看队列、动态增加队列、删除队列，系统自动加载新的队列配置(使用redis保存配置信息)，还可以http增删改查
+## 队列操作
+## 查看队列、动态增加队列、删除队列，系统自动加载新的队列配置(使用redis保存配置信息)，还可以http增删改查
 ```shell script
-查看当前存在的队列: php index.php "command/SmcServer/queueList"  
-增加队列(手动后台增加mq队列):  php index.php "command/SmcServer/addQueue" "queueName=send_email&minConsumerNum=3&maxConsumerNum=10&callbackUrl=callback/Message/send"  
-删除队列: php index.php "command/SmcServer/deleteQueue" "queueName=send_email"   
+查看队列列表: php index.php "command/SmcServer/queueList"  
+增加队列配置:  php index.php "command/SmcServer/addQueue" "queueName=send_email&minConsumerNum=3&maxConsumerNum=10&callbackUrl=callback/Message/send"
+启动队列消费进程   php index.php "command/SmcServer/start" "queueName=send_email"
+停止队列消费进程   php index.php "command/SmcServer/stop" "queueName=send_email"
+更新队列配置:  php index.php "command/SmcServer/addQueue" "queueName=send_email&minConsumerNum=3&maxConsumerNum=10&callbackUrl=callback/Message/send"  
+删除队列: php index.php "command/SmcServer/deleteQueue" "queueName=send_email"
 ```
 
 配置回调地址  : config/smc/queueConfig.php  
