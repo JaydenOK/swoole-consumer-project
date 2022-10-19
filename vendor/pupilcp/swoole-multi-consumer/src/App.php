@@ -45,9 +45,10 @@ class App
 //        'start' == $command && Smc::getGlobalConfig()['global']['daemon'] && \Swoole\Process::daemon();
         //是否守护进程启动
         if ('start' == $command && $daemon) {
+            //当前执行的即为主进程
+            //使当前进程蜕变为一个守护进程。
             \Swoole\Process::daemon();
         }
-        //当前执行的即为主进程
         $process = new Process();
         switch ($command) {
             case 'start':

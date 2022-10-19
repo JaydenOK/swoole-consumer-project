@@ -16,7 +16,7 @@ use Pupilcp\Smc;
 class Process
 {
     /**
-     * Process constructor.
+     * @var int master主进程id
      */
     private $mpid = null;
     private $masterPidFile = null;
@@ -56,7 +56,9 @@ class Process
             $this->init();
             $this->createSwooleTable();
             $this->initConsumers();
+            //注册信号
             $this->registerSignal();
+            //注册定时器
             $this->registerTimer();
         } catch (\Throwable $e) {
             printf($e->getMessage());
@@ -140,9 +142,11 @@ class Process
 
     /**
      * 主进程不存在，子进程也退出.
+     * @param $worker \Swoole\Process 子进程
      */
     private function checkMpid(&$worker)
     {
+        //子进程共享已执行的父进程代码，获取$this->mpid
         if (!\Swoole\Process::kill($this->mpid, 0)) {
             $worker->exit();
             Smc::$logger->log('Master process exited, I [' . $worker->pid . '] also quit', Logger::LEVEL_ERROR);
@@ -162,6 +166,7 @@ class Process
         if (is_file($this->masterPath . DIRECTORY_SEPARATOR . $this->serverStatusFile)) {
             file_put_contents($this->masterPath . DIRECTORY_SEPARATOR . $this->serverStatusFile, '');
         }
+        //返回当前进程的 id
         $this->mpid = posix_getpid();
         $this->startTime = time();
         file_put_contents($this->masterPidFile, $this->mpid);
@@ -206,6 +211,7 @@ class Process
     private function renameProcessName($name)
     {
         if (PHP_OS != 'Darwin' && function_exists('swoole_set_process_name')) {
+            //用于设置进程的名称。修改进程名称后，通过 ps 命令看到的将不再是 php your_file.php，而是设定的字符串。
             swoole_set_process_name($name);
         }
     }
@@ -219,8 +225,10 @@ class Process
      */
     private function createProcess($queueConf = null)
     {
+        //进程原型：Swoole\Process::__construct(callable $function, bool $redirect_stdin_stdout = false, int $pipe_type = SOCK_DGRAM, bool $enable_coroutine = false);
+        //callable $function 子进程创建成功后要执行的函数【底层会自动将函数保存到对象的 callback 属性上】
+        //当使用pcntl_fork()成功创建子进程后，子进程会复制父进程的代码和数据。此时父进程和子进程拥有相同的代码和数据。子进程也会复制父进程的状态。
         $process = new \Swoole\Process(function (\Swoole\Process $worker) use ($queueConf) {
-            //子进程创建成功后要执行的函数【底层会自动将函数保存到对象的 callback 属性上】
             //设置子进程名称
             $this->renameProcessName(sprintf('smc-worker-%s', $queueConf['queueName']));
             $this->checkMpid($worker);
@@ -241,8 +249,10 @@ class Process
                 //队列有数据，消费进程执行的应用
                 $baseApp = new $baseApplication();
                 $startTime = time();
+                //Blocking function that will retrieve the next message from the queue as
+                //it becomes available and will pass it off to the callback
                 $queue->consume(function (\AMQPEnvelope $envelope, \AMQPQueue $queue) use ($baseApp, $queueConf, &$startTime, $worker) {
-                    //consume阻塞，mq队列有数据才执行
+                    //consume阻塞函数
                     //Smc::$logger->log('time:' . date('Y-m-d H:i:s'), Logger::LEVEL_INFO);
                     $baseApp->run(['callbackUrl' => $queueConf['callbackUrl'], 'data' => $envelope->getBody()]);
                     $queue->ack($envelope->getDeliveryTag());
@@ -261,9 +271,9 @@ class Process
         }, false, false);
         //启动子进程
         $pid = $process->start();
-        //每个消费者进程pid保存于php变量
+        //每个消费者子进程pid保存于php变量
         $this->works[$queueConf['queueName']][] = $pid;
-        //每个消费者进程pid保存于 redis
+        //每个消费者子进程pid保存于 redis
         Smc::addWorker($queueConf['queueName'], $pid);
 
         return $pid;
@@ -373,14 +383,21 @@ class Process
      */
     private function registerSignal()
     {
+        //Swoole\Process::signal(int $signo, callable $callback): bool  设置异步信号监听
+        //此方法基于 signalfd 和 EventLoop 是异步 IO，不能用于阻塞的程序中，会导致注册的监听回调函数得不到调度；
+        //同步阻塞的程序可以使用 pcntl 扩展提供的 pcntl_signal；
+        //如果已设置了此信号的回调函数，重新设置时会覆盖历史设置。
+
         //强行退出主进程 term
         \Swoole\Process::signal(SIGTERM, function ($signo) {
             $this->exitSmcServer($signo);
         });
+
         //强行退出主进程 kill
         \Swoole\Process::signal(SIGKILL, function ($signo) {
             $this->exitSmcServer($signo);
         });
+
         //SIGUSR1: 向主进程 / 管理进程发送 SIGUSR1 信号，将平稳地 restart 所有 Worker 进程和 TaskWorker 进程
         //重启消费者子进程，SIGUSR1重启信号：\Swoole\Process::kill($this->mpid, SIGUSR1);
         \Swoole\Process::signal(SIGUSR1, function ($signo) {
@@ -390,6 +407,7 @@ class Process
             $this->exitSmcServer($signo, false);
             $this->initConsumers();
         });
+
         //重新注册定时器user2
         \Swoole\Process::signal(SIGUSR2, function ($signo) {
             if ($this->timerPid && \Swoole\Process::kill($this->timerPid, 0)) {
@@ -398,6 +416,7 @@ class Process
             Smc::$logger->log('【系统提示】接收到系统命令，重新注册定时器');
             $this->registerTimer();
         });
+
         //回收子进程child，master进程通过SIGCHLD监听子进程退出并重启子进程
         \Swoole\Process::signal(SIGCHLD, function ($signo) {
             $this->processWait();
@@ -567,6 +586,7 @@ class Process
                     Notice::getInstance()->notice(['title' => 'smc-server预警提示', 'content' => $msg]);
                     //配置发生变化，重新加载配置，并重启子进程
                     Smc::setConfigHash($configJson);
+                    //向父进程发送SIGUSR1信号（前面注册了SIGUSR1信号）
                     \Swoole\Process::kill($this->mpid, SIGUSR1);
                 }
             }

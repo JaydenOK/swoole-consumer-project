@@ -47,7 +47,7 @@ class SmcService
         return $this->queueConfig;
     }
 
-    //smc管理
+    //smc管理，cli命令行执行
     public function manage($requestBody)
     {
         try {
