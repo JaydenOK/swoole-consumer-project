@@ -1,4 +1,4 @@
-#### swoole-rabbitmq 多消费者异步队列服务
+# swoole-rabbitmq 多消费者异步队列服务
 可作为独立队列回调服务，向rabbitmq队列发送消息，配置callback后，异步回调到callback地址，用于业务解耦。  
 或集成到自己系统模块下，callback配置对应的 模块/控制器/方法，命令行执行回调。  
 
@@ -11,7 +11,7 @@
 ```
 
 ## 队列操作
-## 查看队列、动态增加队列、删除队列，系统自动加载新的队列配置(使用redis保存配置信息)，还可以http增删改查
+#### 查看队列、动态增加队列、删除队列，系统自动加载新的队列配置(使用redis保存配置信息)，还可以http增删改查
 ```shell script
 查看队列列表: php index.php "command/SmcServer/queueList"  
 增加队列配置:  php index.php "command/SmcServer/addQueue" "queueName=send_email&minConsumerNum=3&maxConsumerNum=10&callbackUrl=callback/Message/send"
@@ -21,9 +21,11 @@
 删除队列: php index.php "command/SmcServer/deleteQueue" "queueName=send_email"
 ```
 
-配置回调地址  : config/smc/queueConfig.php  
+## 配置rabbitMQ连接及交换机    
 ```php
 <?php
+//config/smc/queueConfig.php 手动创建交换机 multi_consumer_exchange
+
 return [
        //消息服务连接配置：/etc/rabbitmq/rabbitmq.conf
        //listeners.tcp.local    = 127.0.0.1:5672
