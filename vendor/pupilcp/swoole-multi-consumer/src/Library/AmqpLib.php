@@ -71,7 +71,10 @@ class AmqpLib
      * @param $vhost
      * @param $exchange
      * @param int $timeout
-     * @param int $heartbeat 服务器想要的连接心跳的延迟（秒），0表示服务器不需要心跳
+     * @param int $heartbeat 服务器想要的连接心跳的延迟（秒），0表示服务器不需要心跳（0不需要，10分钟后断开）
+     * rabbitmq会为每个tcp连接创建两个进程用于心跳检测，一个进程定时检测tcp连接上是否有数据发送（这里的发送是指rabbitmq发送数据给客户端），
+     * 如果一段时间内没有数据发送给客户端，则发送一个心跳包给客户端，然后循环进行下一次检测；
+     * 另一个进程定时检测tcp连接上是否有数据的接收，如果一段时间内没有收到任何数据，则判定为心跳超时，最终会关闭tcp连接。
      * @throws \Exception
      */
     private function __construct($host, $port, $user, $pass, $vhost, $exchange, $timeout = 5, $heartbeat = 5)
