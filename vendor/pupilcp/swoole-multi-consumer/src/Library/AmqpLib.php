@@ -10,10 +10,10 @@ namespace Pupilcp\Library;
 
 class AmqpLib
 {
-    const TYPE_TOPIC   = 'topic';
-    const TYPE_DIRECT  = 'direct';
+    const TYPE_TOPIC = 'topic';
+    const TYPE_DIRECT = 'direct';
     const TYPE_HEADERS = 'headers';
-    const TYPE_FANOUT  = 'fanout';
+    const TYPE_FANOUT = 'fanout';
 
     /**
      * @var AMQPConnection
@@ -63,37 +63,37 @@ class AmqpLib
     private static $instance = null;
 
     /**
-     * constructor.
-     *
-     * @param mixed      $host
-     * @param mixed      $port
-     * @param mixed      $user
-     * @param mixed      $pass
-     * @param mixed      $vhost
-     * @param null|mixed $exchange
-     * @param mixed      $timeout
-     *
-     * @throws
+     * AmqpLib constructor.
+     * @param $host
+     * @param $port
+     * @param $user
+     * @param $pass
+     * @param $vhost
+     * @param $exchange
+     * @param int $timeout
+     * @param int $heartbeat 服务器想要的连接心跳的延迟（秒），0表示服务器不需要心跳
+     * @throws \Exception
      */
-    private function __construct($host, $port, $user, $pass, $vhost, $exchange, $timeout = 5)
+    private function __construct($host, $port, $user, $pass, $vhost, $exchange, $timeout = 5, $heartbeat = 5)
     {
-        $this->host     = $host;
-        $this->port     = $port;
-        $this->user     = $user;
-        $this->pass     = $pass;
-        $this->vhost    = $vhost;
+        $this->host = $host;
+        $this->port = $port;
+        $this->user = $user;
+        $this->pass = $pass;
+        $this->vhost = $vhost;
         $this->exchange = $exchange;
         if (empty($this->user)) {
             throw new \Exception("Parameter 'user' was not set for AMQP connection.");
         }
         if (empty(self::$ampqConnection)) {
             $connectionArr = [
-                'host'            => $this->host,
-                'port'            => $this->port,
-                'login'           => $this->user,
-                'password'        => $this->pass,
-                'vhost'           => $this->vhost,
+                'host' => $this->host,
+                'port' => $this->port,
+                'login' => $this->user,
+                'password' => $this->pass,
+                'vhost' => $this->vhost,
                 'connect_timeout' => $timeout,
+                'heartbeat' => $heartbeat,
             ];
             $class = class_exists('AMQPConnection', false);
             if ($class) {
@@ -121,9 +121,9 @@ class AmqpLib
     /**
      * Returns AMQP connection.
      *
+     * @return AMQPConnection
      * @throws
      *
-     * @return AMQPConnection
      */
     public function getConnection()
     {
@@ -137,16 +137,16 @@ class AmqpLib
     /**
      * 发布消息.
      *
-     * @param string $exchange   交换机
+     * @param string $exchange 交换机
      * @param string $routingKey 路由key
-     * @param string $message    消息
+     * @param string $message 消息
      *
      * @throws
      */
     public function publish($exchange = null, $routingKey = null, $message = null)
     {
         $channel = new \AMQPChannel(self::$ampqConnection);
-        $ex      = new \AMQPExchange($channel);
+        $ex = new \AMQPExchange($channel);
         $ex->setName($exchange);
         $channel->startTransaction(); //开始事务
         $ex->publish($message, $routingKey);
@@ -157,7 +157,7 @@ class AmqpLib
     /**
      * 订阅.
      *
-     * @param mixed      $callback
+     * @param mixed $callback
      * @param null|mixed $queueConf
      *
      * @throws
@@ -189,9 +189,9 @@ class AmqpLib
      *
      * @param mixed $queueName
      *
+     * @return int
      * @throws
      *
-     * @return int
      */
     public function getMessageCount($queueName)
     {
@@ -200,7 +200,7 @@ class AmqpLib
         }
         //在连接内创建一个通道
         $ch = new \AMQPChannel(self::$ampqConnection);
-        $q  = new \AMQPQueue($ch);
+        $q = new \AMQPQueue($ch);
         $q->setName($queueName);
         $q->setFlags(AMQP_PASSIVE);
         $len = $q->declareQueue();
