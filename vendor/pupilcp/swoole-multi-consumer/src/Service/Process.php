@@ -266,7 +266,11 @@ class Process
                 });
             } catch (\Throwable $e) {
                 $this->swooleTable->set($this->rebootChildProcessFlag, ['reboot' => 1]);
-                Smc::$logger->log('createProcess Error: set reboot=1: ' . $e->getMessage() . $e->getTraceAsString(), Logger::LEVEL_ERROR);
+                if (strpos($e->getMessage(), '执行时间超过设定时间') !== false) {
+                    Smc::$logger->log('子进程执行时间超过设定时间，退出并重启', Logger::LEVEL_INFO);
+                } else {
+                    Smc::$logger->log('createProcess Error: set reboot=1: ' . $e->getMessage() . $e->getTraceAsString(), Logger::LEVEL_ERROR);
+                }
             }
         }, false, false);
         //启动子进程
