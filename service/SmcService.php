@@ -245,6 +245,9 @@ class SmcService
         if (!isset($queuesArr[$queueName])) {
             return 'queue not exist';
         }
+        if ($queuesArr[$queueName]['status'] == self::STATUS_START) {
+            return 'queue already start';
+        }
         $queuesArr[$queueName]['status'] = self::STATUS_START;
         ksort($queuesArr);
         $this->getRedis()->set(self::QUEUE_CONFIG, json_encode($queuesArr));
@@ -259,6 +262,9 @@ class SmcService
         $queuesArr = json_decode($queuesJson, true);
         if (!isset($queuesArr[$queueName])) {
             return 'queue not exist';
+        }
+        if ($queuesArr[$queueName]['status'] == self::STATUS_STOP) {
+            return 'queue already stop';
         }
         $queuesArr[$queueName]['status'] = self::STATUS_STOP;
         ksort($queuesArr);
